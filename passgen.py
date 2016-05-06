@@ -11,12 +11,11 @@ __license__   = "GPL"
 __version__   = "0.1.0"
 
 
-import argparse
-import random
-
 wordlist = []
 
-PUNC_LIST = [
+DEFAULT_WORD_DICT = '/usr/share/dict/words'
+
+PUNCT_LIST = [
     ',',
     '.',
     '=',
@@ -103,28 +102,29 @@ def get_rand_word(wordlist):
     return random.choice(wordlist)
 
 
-def gen_pass(words, shift, wordlist, punc_list, prepend, interleave, postpend):
+def gen_pass(words, no_shift, wordlist, punct_list, prepend, interleave, postpend):
     pw = []
     word = ""
 
     punc = ""
-    for p in punc_list:
+    for p in punct_list:
         punc += p
-    print "Allowed punctuation: " + punc + "\n"
+    print "PUNCTUATION ALLOWED : " + punc
+    print "SPACES ALLOWED      : {}".format(bool(' ' in punc))
     while words:
         c = get_rand_word(wordlist).split('\n')[0]
-        if not shift:
+        if no_shift:
             c = c.lower()
         pw.append(c)
         words -= 1
 
     if prepend:
-        word += random.choice(punc_list)
+        word += random.choice(punct_list)
 
     for w in pw:
         word += w
         if interleave:
-            word += random.choice(punc_list)
+            word += random.choice(punct_list)
 
     if not postpend:
         word = word[0:-1]
@@ -134,7 +134,9 @@ def gen_pass(words, shift, wordlist, punc_list, prepend, interleave, postpend):
 
 def main():
     parser = argparse.ArgumentParser("Generate N.M nemonic password")
+    pnctrl = parser.add_argument_group('punct_rules')
     l33t3x = parser.add_mutually_exclusive_group()
+
     parser.add_argument("-0", "--prepend-punc",
                         help="begin password with punctuation. Default: False",
                         action="store_true",
@@ -145,38 +147,37 @@ def main():
                         default=False)
     parser.add_argument("-d", "--dictionary-path",
                         type=str,
-                        help="path to \\n-delimited word list. Default: /usr/share/dict/words",
+                        help="path to \\n-delimited word list. Default: {}".format(DEFAULT_WORD_DICT),
                         action="store",
                         default="/usr/share/dict/words")
-    l33t3x.add_argument("-E", "--leet-extended",
+    l33t3x.add_argument("-e", "--leet-extended",
                         help="allow extended l33t character substitution (http://www.securepasswords.net/site/ASCII-"
                              "1337-Alphabet/page/23.html). Default: False",
                         action="store_true",
                         default=False)
-    parser.add_argument("-H", "--shift",
-                        help="allow characters requiring shift key. Default: False",
+    pnctrl.add_argument("-H", "--no-shift",
+                        help="disallow characters requiring shift key. Default: False",
                         action="store_true",
                         default=False)
-    parser.add_argument("-I", "--interleave",
+    pnctrl.add_argument("-I", "--interleave",
                         help="interleave words with punctuation. Default: True",
                         action="store_false",
                         default=True)
-    l33t3x.add_argument("-L", "--leet",
-                        help="allow basic l33t character substitution (http://www.securepasswords.net/site/ASCII-"
-                             "1337-Alphabet/page/23.html). Default: False",
+    l33t3x.add_argument("-l", "--leet",
+                        help="allow basic l33t character substitution Default: False",
                         action="store_true",
                         default=False)
-    parser.add_argument("-N", "--numbers",
+    pnctrl.add_argument("-N", "--numbers",
                         help="use Numbers as punctuation",
                         action="store_true",
                         default=False)
-    parser.add_argument("-p", "--punc-list",
-                        help="list of allowed punctuation.",
+    parser.add_argument("-p", "--punct-list",
+                        help="list of allowed punctuation. NOTE: This argument overrides all 'punct_rules' arguments!",
                         action="store",
-                        default=PUNC_LIST,
+                        default=[],
                         nargs="*")
-    parser.add_argument("-S", "--allow-space",
-                        help="allow space to be a punctuation char. Default: False",
+    pnctrl.add_argument("-S", "--no-spaces",
+                        help="remove space to be a punctuation char. Default: False",
                         action="store_true",
                         default=False)
     parser.add_argument("-w", "--words",
@@ -190,22 +191,23 @@ def main():
         for w in wlfp:
             wordlist.append(w)
 
-    if not args.shift:
-        punc_list = args.punc_list[0:args.punc_list.index(" ") + 1]
+    if not args.punct_list:
+        punct_list = PUNCT_LIST
+        if args.no_shift:
+            punct_list = punct_list[0:punct_list.index(' ') + 1]
 
-    if not args.allow_space:
-        punc_list.remove(" ")
+        if args.no_spaces:
+            punct_list.remove(' ')
 
+        if args.numbers:
+            punct_list += NUM_LIST
     else:
-        punc_list = PUNC_LIST
+        punct_list = [p for p in args.punct_list if p in PUNCT_LIST]
 
-    if args.numbers:
-        punc_list += NUM_LIST
-
-    word = gen_pass(args.words, args.shift, wordlist, [p for p in args.punc_list if p in punc_list], args.prepend_punc,
+    word = gen_pass(args.words, args.no_shift, wordlist, punct_list, args.prepend_punc,
                     args.interleave, args.postpend_punc)
 
-    print "Suggestion: " + word
+    print "\nSUGGESTION : " + word
 
     l3w = ""
 
@@ -224,7 +226,7 @@ def main():
                 l3w += c
 
     if l3w:
-        print "L33T:       " + l3w
+        print "L33T       : " + l3w
 
 
 if __name__ == "__main__":
